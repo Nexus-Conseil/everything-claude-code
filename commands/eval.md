@@ -1,3 +1,7 @@
+---
+description: Manage the eval-driven development workflow: define, check, report and list capability and regression evals for a feature.
+---
+
 # Eval Command
 
 Manage eval-driven development workflow.

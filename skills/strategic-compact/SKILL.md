@@ -21,7 +21,7 @@ Strategic compaction at logical boundaries:
 
 ## How It Works
 
-The `suggest-compact.sh` script runs on PreToolUse (Edit/Write) and:
+The `scripts/hooks/suggest-compact.js` script runs on PreToolUse (Edit/MultiEdit/Write) and:
 
 1. **Tracks tool calls** - Counts tool invocations in session
 2. **Threshold detection** - Suggests at configurable threshold (default: 50 calls)
@@ -29,16 +29,16 @@ The `suggest-compact.sh` script runs on PreToolUse (Edit/Write) and:
 
 ## Hook Setup
 
-Add to your `~/.claude/settings.json`:
+Installed automatically with the plugin (see `hooks/hooks.json`). For a manual setup, add to your `~/.claude/settings.json` (the matcher filters on tool names only):
 
 ```json
 {
   "hooks": {
     "PreToolUse": [{
-      "matcher": "tool == \"Edit\" || tool == \"Write\"",
+      "matcher": "Edit|MultiEdit|Write",
       "hooks": [{
         "type": "command",
-        "command": "~/.claude/skills/strategic-compact/suggest-compact.sh"
+        "command": "node /path/to/everything-claude-code/scripts/hooks/suggest-compact.js"
       }]
     }]
   }

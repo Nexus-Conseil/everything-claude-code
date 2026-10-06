@@ -1,3 +1,7 @@
+---
+description: Run the build, group TypeScript and build errors by file and fix them incrementally with minimal changes.
+---
+
 # Build and Fix
 
 Incrementally fix TypeScript and build errors:

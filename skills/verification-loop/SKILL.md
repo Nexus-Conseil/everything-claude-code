@@ -1,3 +1,8 @@
+---
+name: verification-loop
+description: Use this skill after completing a feature, before creating a PR or after refactoring: runs build, types, lint, tests, coverage, security scan and diff review as one verification loop.
+---
+
 # Verification Loop Skill
 
 A comprehensive verification system for Claude Code sessions.
