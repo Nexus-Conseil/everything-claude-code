@@ -1,3 +1,7 @@
+---
+description: Sync documentation from the source of truth: scripts reference from package.json, environment variables from .env.example, API routes and README sections.
+---
+
 # Update Documentation
 
 Sync documentation from source-of-truth:

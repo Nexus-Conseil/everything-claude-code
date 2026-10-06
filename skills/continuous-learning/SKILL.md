@@ -52,23 +52,23 @@ Edit `config.json` to customize:
 
 ## Hook Setup
 
-Add to your `~/.claude/settings.json`:
+Installed automatically with the plugin (see `hooks/hooks.json`, SessionEnd event). For a manual setup, add to your `~/.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "Stop": [{
+    "SessionEnd": [{
       "matcher": "*",
       "hooks": [{
         "type": "command",
-        "command": "~/.claude/skills/continuous-learning/evaluate-session.sh"
+        "command": "node /path/to/everything-claude-code/scripts/hooks/evaluate-session.js"
       }]
     }]
   }
 }
 ```
 
-## Why Stop Hook?
+## Why SessionEnd Hook?
 
 - **Lightweight**: Runs once at session end
 - **Non-blocking**: Doesn't add latency to every message

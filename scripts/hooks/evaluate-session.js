@@ -4,10 +4,10 @@
  *
  * Cross-platform (Windows, macOS, Linux)
  *
- * Runs on Stop hook to extract reusable patterns from Claude Code sessions
+ * Runs on the SessionEnd hook to extract reusable patterns from Claude Code sessions
  *
- * Why Stop hook instead of UserPromptSubmit:
- * - Stop runs once at session end (lightweight)
+ * Why SessionEnd instead of UserPromptSubmit:
+ * - SessionEnd runs once at session end (lightweight)
  * - UserPromptSubmit runs every message (heavy, adds latency)
  */
 
@@ -18,6 +18,7 @@ const {
   ensureDir,
   readFile,
   countInFile,
+  readStdinJson,
   log
 } = require('../lib/utils');
 
@@ -49,8 +50,15 @@ async function main() {
   // Ensure learned skills directory exists
   ensureDir(learnedSkillsPath);
 
-  // Get transcript path from environment (set by Claude Code)
-  const transcriptPath = process.env.CLAUDE_TRANSCRIPT_PATH;
+  // Claude Code passes the transcript path on stdin (hook input JSON);
+  // CLAUDE_TRANSCRIPT_PATH is kept as a manual override.
+  let input = {};
+  try {
+    input = await readStdinJson();
+  } catch {
+    input = {};
+  }
+  const transcriptPath = process.env.CLAUDE_TRANSCRIPT_PATH || input.transcript_path;
 
   if (!transcriptPath || !fs.existsSync(transcriptPath)) {
     process.exit(0);

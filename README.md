@@ -12,6 +12,70 @@ Production-ready agents, skills, hooks, commands, rules, and MCP configurations 
 
 ---
 
+## Installation rapide (fork Nexus-Conseil)
+
+Ce fork s'installe comme **plugin Claude Code au scope utilisateur** : une seule installation par machine, valable pour tous les projets et pour tous les comptes Claude utilisés sur cette machine. La configuration `~/.claude/` dépend de la session système, pas du compte Claude : changer de compte avec `/login` ne change rien.
+
+### 1. Sur chaque machine, une seule fois
+
+```bash
+git clone https://github.com/Nexus-Conseil/everything-claude-code.git
+cd everything-claude-code
+./install.sh                                            # macOS, Linux, Git Bash
+powershell -ExecutionPolicy Bypass -File .\install.ps1   # Windows PowerShell
+```
+
+Le script est idempotent et :
+
+1. enregistre la marketplace `Nexus-Conseil/everything-claude-code` au scope utilisateur ;
+2. installe le plugin `everything-claude-code@everything-claude-code` ;
+3. active la mise à jour automatique de la marketplace ;
+4. copie `rules/*.md` dans `~/.claude/rules/everything-claude-code/`, car un plugin ne peut pas distribuer de règles.
+
+Sans cloner le dépôt, les deux commandes équivalentes sont (aussi disponibles sous la forme `/plugin ...` dans une session) :
+
+```bash
+claude plugin marketplace add Nexus-Conseil/everything-claude-code
+claude plugin install everything-claude-code@everything-claude-code
+```
+
+Redémarrez Claude Code puis vérifiez avec `/plugin list`.
+
+### 2. Sessions cloud (claude.ai/code, application mobile, `claude --cloud`)
+
+Une session cloud démarre dans une machine virtuelle neuve : les plugins installés sur votre ordinateur n'y sont pas. Ajoutez une fois, dans le **script de configuration** de chaque environnement cloud (menu de l'environnement, puis Edit, champ Setup script) :
+
+```bash
+claude plugin marketplace add Nexus-Conseil/everything-claude-code --scope user
+claude plugin install everything-claude-code@everything-claude-code --scope user
+mkdir -p ~/.claude/rules/everything-claude-code && cp ~/.claude/plugins/marketplaces/everything-claude-code/rules/*.md ~/.claude/rules/everything-claude-code/
+```
+
+Le résultat est mis en cache par l'environnement (environ sept jours), puis le script est rejoué automatiquement. Chaque compte Claude a ses propres environnements : l'opération se fait une fois par environnement.
+
+### 3. Mise à jour
+
+```bash
+./install.sh --update
+# ou, sans clone local :
+claude plugin marketplace update everything-claude-code
+claude plugin update everything-claude-code@everything-claude-code
+```
+
+Le plugin n'a pas de champ `version` : chaque commit poussé sur `main` est une nouvelle version. Redémarrez Claude Code pour l'appliquer.
+
+### 4. Contenu confidentiel
+
+Ce dépôt est public : il ne contient que du contenu générique. Les règles propres à une société ou à un client, les configurations MCP avec de vraies valeurs et les instructions internes vont dans le dossier `.claude/` du projet concerné (`.claude/rules/`, `.claude/settings.json`, `.mcp.json`). C'est aussi ce que lisent les sessions cloud.
+
+### 5. Ce que le plugin ne couvre pas
+
+- `rules/` : copiées par le script dans `~/.claude/rules/everything-claude-code/`, ou à committer dans le `.claude/rules/` d'un projet ;
+- `contexts/` : à injecter manuellement, par exemple `claude --append-system-prompt-file contexts/dev.md` ;
+- `mcp-configs/` : à copier dans le `.mcp.json` d'un projet après remplacement des `YOUR_*_HERE`.
+
+---
+
 ## The Guides
 
 This repo is the raw code only. The guides explain everything.
@@ -132,11 +196,11 @@ everything-claude-code/
 |   |-- git-workflow.md     # Commit format, PR process
 |   |-- agents.md           # When to delegate to subagents
 |   |-- performance.md      # Model selection, context management
+|   |-- hooks.md            # Hook conventions
+|   |-- patterns.md         # Reusable implementation patterns
 |
 |-- hooks/            # Trigger-based automations
 |   |-- hooks.json                # All hooks config (PreToolUse, PostToolUse, Stop, etc.)
-|   |-- memory-persistence/       # Session lifecycle hooks (Longform Guide)
-|   |-- strategic-compact/        # Compaction suggestions (Longform Guide)
 |
 |-- scripts/          # Cross-platform Node.js scripts (NEW)
 |   |-- lib/                     # Shared utilities
@@ -148,6 +212,11 @@ everything-claude-code/
 |   |   |-- pre-compact.js       # Pre-compaction state saving
 |   |   |-- suggest-compact.js   # Strategic compaction suggestions
 |   |   |-- evaluate-session.js  # Extract patterns from sessions
+|   |   |-- pre-bash.js          # tmux and git push reminders
+|   |   |-- pre-write-doc-guard.js # Warn about stray .md/.txt files
+|   |   |-- post-bash.js         # Log the PR URL after gh pr create
+|   |   |-- post-edit.js         # Prettier, tsc and console.log checks
+|   |   |-- stop-console-check.js # console.log audit of modified files
 |   |-- setup-package-manager.js # Interactive PM setup
 |
 |-- tests/            # Test suite (NEW)
@@ -167,7 +236,7 @@ everything-claude-code/
 |-- mcp-configs/      # MCP server configurations
 |   |-- mcp-servers.json    # GitHub, Supabase, Vercel, Railway, etc.
 |
-|-- marketplace.json  # Self-hosted marketplace config (for /plugin marketplace add)
+|-- install.sh / install.ps1   # One-time per-machine bootstrap (marketplace, plugin, rules)
 ```
 
 ---
@@ -176,15 +245,17 @@ everything-claude-code/
 
 ### Option 1: Install as Plugin (Recommended)
 
-The easiest way to use this repo - install as a Claude Code plugin:
+The easiest way to use this repo - install as a Claude Code plugin (user scope: every project on the machine, whatever Claude account is logged in):
 
 ```bash
 # Add this repo as a marketplace
-/plugin marketplace add affaan-m/everything-claude-code
+/plugin marketplace add Nexus-Conseil/everything-claude-code
 
 # Install the plugin
 /plugin install everything-claude-code@everything-claude-code
 ```
+
+Or run `./install.sh` (`powershell -ExecutionPolicy Bypass -File .\install.ps1` on Windows) from a clone: same commands, plus auto-update and the `rules/` copy.
 
 Or add directly to your `~/.claude/settings.json`:
 
@@ -194,8 +265,9 @@ Or add directly to your `~/.claude/settings.json`:
     "everything-claude-code": {
       "source": {
         "source": "github",
-        "repo": "affaan-m/everything-claude-code"
-      }
+        "repo": "Nexus-Conseil/everything-claude-code"
+      },
+      "autoUpdate": true
     }
   },
   "enabledPlugins": {
@@ -204,7 +276,7 @@ Or add directly to your `~/.claude/settings.json`:
 }
 ```
 
-This gives you instant access to all commands, agents, skills, and hooks.
+This gives you access to all commands, agents, skills, and hooks. Rules are not a plugin component: copy `rules/*.md` to `~/.claude/rules/` (the install script does it) or commit them to a project's `.claude/rules/`.
 
 ---
 
@@ -214,7 +286,7 @@ If you prefer manual control over what's installed:
 
 ```bash
 # Clone the repo
-git clone https://github.com/affaan-m/everything-claude-code.git
+git clone https://github.com/Nexus-Conseil/everything-claude-code.git
 
 # Copy agents to your Claude config
 cp everything-claude-code/agents/*.md ~/.claude/agents/
@@ -229,9 +301,9 @@ cp everything-claude-code/commands/*.md ~/.claude/commands/
 cp -r everything-claude-code/skills/* ~/.claude/skills/
 ```
 
-#### Add hooks to settings.json
+#### Hooks
 
-Copy the hooks from `hooks/hooks.json` to your `~/.claude/settings.json`.
+Hooks are loaded automatically when the plugin is installed. Do not copy `hooks/hooks.json` into `~/.claude/settings.json` as well: the hooks would run twice. For a manual install without the plugin, copy the entries you want and replace `${CLAUDE_PLUGIN_ROOT}` with the path of your clone.
 
 #### Configure MCPs
 
@@ -278,13 +350,15 @@ Hooks fire on tool events. Example - warn about console.log:
 
 ```json
 {
-  "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\\\.(ts|tsx|js|jsx)$\"",
+  "matcher": "Edit|MultiEdit|Write",
   "hooks": [{
     "type": "command",
-    "command": "#!/bin/bash\ngrep -n 'console\\.log' \"$file_path\" && echo '[Hook] Remove console.log' >&2"
+    "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/post-edit.js\""
   }]
 }
 ```
+
+The `matcher` only filters on the tool name (exact name, `A|B` list, `*` or a regex). Argument filtering goes in the script (reads the hook JSON on stdin) or in the optional `if` field, for example `"if": "Edit(*.ts)"`. See `hooks/hooks.json` and `scripts/hooks/` for the full set.
 
 ### Rules
 

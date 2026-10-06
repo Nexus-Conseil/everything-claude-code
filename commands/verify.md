@@ -1,3 +1,7 @@
+---
+description: Run the full verification loop in order (build, types, lint, tests, coverage, security, diff review) and report the results.
+---
+
 # Verification Command
 
 Run comprehensive verification on current codebase state.

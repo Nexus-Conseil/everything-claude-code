@@ -1,3 +1,7 @@
+---
+description: Analyze the current session and extract reusable patterns into skill files under ~/.claude/skills/learned/.
+---
+
 # /learn - Extract Reusable Patterns
 
 Analyze the current session and extract any patterns worth saving as skills.

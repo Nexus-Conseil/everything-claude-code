@@ -5,16 +5,18 @@
  * Cross-platform (Windows, macOS, Linux)
  *
  * Runs when a new Claude session starts. Checks for recent session
- * files and notifies Claude of available context to load.
+ * files and learned skills and reports the detected package manager.
+ *
+ * The summary is printed to stdout: Claude Code adds a SessionStart
+ * hook's stdout to Claude's context (stderr is discarded on exit code 0).
  */
 
-const path = require('path');
 const {
   getSessionsDir,
   getLearnedSkillsDir,
   findFiles,
   ensureDir,
-  log
+  output
 } = require('../lib/utils');
 const { getPackageManager, getSelectionPrompt } = require('../lib/package-manager');
 
@@ -26,33 +28,33 @@ async function main() {
   ensureDir(sessionsDir);
   ensureDir(learnedDir);
 
+  const lines = [];
+
   // Check for recent session files (last 7 days)
   const recentSessions = findFiles(sessionsDir, '*.tmp', { maxAge: 7 });
-
   if (recentSessions.length > 0) {
-    const latest = recentSessions[0];
-    log(`[SessionStart] Found ${recentSessions.length} recent session(s)`);
-    log(`[SessionStart] Latest: ${latest.path}`);
+    lines.push(
+      `[SessionStart] ${recentSessions.length} recent session file(s); latest: ${recentSessions[0].path}`
+    );
   }
 
   // Check for learned skills
   const learnedSkills = findFiles(learnedDir, '*.md');
-
   if (learnedSkills.length > 0) {
-    log(`[SessionStart] ${learnedSkills.length} learned skill(s) available in ${learnedDir}`);
+    lines.push(`[SessionStart] ${learnedSkills.length} learned skill(s) available in ${learnedDir}`);
   }
 
   // Detect and report package manager
   const pm = getPackageManager();
-  log(`[SessionStart] Package manager: ${pm.name} (${pm.source})`);
+  lines.push(`[SessionStart] Package manager: ${pm.name} (${pm.source})`);
 
   // If package manager was detected via fallback, show selection prompt
   if (pm.source === 'fallback' || pm.source === 'default') {
-    log('[SessionStart] No package manager preference found.');
-    log(getSelectionPrompt());
+    lines.push('[SessionStart] No package manager preference found.');
+    lines.push(getSelectionPrompt());
   }
 
-  process.exit(0);
+  output(lines.join('\n'));
 }
 
 main().catch(err => {

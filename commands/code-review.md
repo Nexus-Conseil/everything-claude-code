@@ -1,3 +1,7 @@
+---
+description: Review uncommitted changes for security issues, code quality, performance and best practices, with a severity-ranked report.
+---
+
 # Code Review
 
 Comprehensive security and quality review of uncommitted changes:

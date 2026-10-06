@@ -1,3 +1,7 @@
+---
+description: Find dead code with knip, depcheck and ts-prune, report it by severity and remove it safely with test verification.
+---
+
 # Refactor Clean
 
 Safely identify and remove dead code with test verification:

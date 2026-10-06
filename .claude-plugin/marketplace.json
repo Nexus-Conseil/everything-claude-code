@@ -1,11 +1,10 @@
 {
   "name": "everything-claude-code",
   "owner": {
-    "name": "Affaan Mustafa",
-    "email": "affaan@example.com"
+    "name": "Nexus-Conseil"
   },
   "metadata": {
-    "description": "Battle-tested Claude Code configurations from an Anthropic hackathon winner"
+    "description": "Claude Code configurations (agents, skills, commands, hooks) maintained by Nexus-Conseil, forked from affaan-m/everything-claude-code"
   },
   "plugins": [
     {
@@ -13,10 +12,10 @@
       "source": "./",
       "description": "Complete collection of agents, skills, hooks, commands, and rules evolved over 10+ months of intensive daily use",
       "author": {
-        "name": "Affaan Mustafa"
+        "name": "Affaan Mustafa (upstream), Nexus-Conseil (fork)"
       },
-      "homepage": "https://github.com/affaan-m/everything-claude-code",
-      "repository": "https://github.com/affaan-m/everything-claude-code",
+      "homepage": "https://github.com/Nexus-Conseil/everything-claude-code",
+      "repository": "https://github.com/Nexus-Conseil/everything-claude-code",
       "license": "MIT",
       "keywords": [
         "agents",

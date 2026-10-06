@@ -1,3 +1,7 @@
+---
+description: Create, verify or list workflow checkpoints that record build, test and coverage state in .claude/checkpoints.log.
+---
+
 # Checkpoint Command
 
 Create or verify a checkpoint in your workflow.
