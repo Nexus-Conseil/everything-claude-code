@@ -390,6 +390,65 @@ async function runTests() {
     assert.strictEqual(result.stdout.trim(), '', 'Should stay silent');
   })) passed++; else failed++;
 
+  // Regression tests for false positives reported in review
+  console.log('\nfalse-positive guards:');
+
+  if (await asyncTest('pre-bash ignores words inside quotes and paths', async () => {
+    for (const cmd of ['git commit -m "make tests pass"', 'ls /var/run/docker.sock', 'yarn --version', 'cat playwright.config.ts', 'grep -rn docker src/']) {
+      const result = await runScript(path.join(scriptsDir, 'pre-bash.js'), bashInput(cmd), localEnv);
+      assert.strictEqual(result.stdout.trim(), '', `Should stay silent for: ${cmd}`);
+    }
+  })) passed++; else failed++;
+
+  if (await asyncTest('pre-bash matches commands after && and env prefixes', async () => {
+    for (const cmd of ['cd app && npm test', 'CI=1 pytest -q', 'make']) {
+      const result = await runScript(path.join(scriptsDir, 'pre-bash.js'), bashInput(cmd), localEnv);
+      assert.ok(result.stdout.includes('tmux'), `Should remind for: ${cmd}`);
+    }
+  })) passed++; else failed++;
+
+  if (await asyncTest('doc guard ignores .txt files and is case-insensitive on directories', async () => {
+    for (const file of ['/tmp/project/requirements.txt', '/tmp/project/public/robots.txt', '/tmp/project/Docs/x.md', '/tmp/project/tests/fixtures/sample.md']) {
+      const result = await runScript(path.join(scriptsDir, 'pre-write-doc-guard.js'), writeInput(file));
+      assert.strictEqual(result.stdout.trim(), '', `Should allow ${file}`);
+    }
+  })) passed++; else failed++;
+
+  if (await asyncTest('post-edit never runs a global prettier and does not use a shell', async () => {
+    const testDir = createTestDir();
+    const file = path.join(testDir, 'a$(touch PWNED).js');
+    const content = "const   x = 1;\nconsole.log('x')\n";
+    fs.writeFileSync(file, content);
+    const result = await runScript(
+      path.join(scriptsDir, 'post-edit.js'),
+      JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: file } }),
+      {},
+      testDir
+    );
+    assert.strictEqual(result.code, 0);
+    assert.ok(!fs.existsSync(path.join(testDir, 'PWNED')), 'File path must never reach a shell');
+    assert.strictEqual(fs.readFileSync(file, 'utf8'), content, 'No project-local prettier: file must be untouched');
+    assert.ok(JSON.parse(result.stdout).hookSpecificOutput.additionalContext.includes('console.log'));
+    cleanupTestDir(testDir);
+  })) passed++; else failed++;
+
+  if (await asyncTest('stop hook resolves paths from a subdirectory and sees untracked files', async () => {
+    const testDir = createTestDir();
+    const git = args => execSync(`git ${args}`, { cwd: testDir, stdio: 'pipe', env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } });
+    git('init -q .');
+    fs.mkdirSync(path.join(testDir, 'sub'));
+    fs.writeFileSync(path.join(testDir, 'sub', 'tracked.js'), 'const a = 1;\n');
+    git('add .');
+    git('commit -q -m init');
+    fs.writeFileSync(path.join(testDir, 'sub', 'tracked.js'), "console.log('a');\n");
+    fs.writeFileSync(path.join(testDir, 'sub', 'new.js'), "console.log('b');\n");
+    const result = await runScript(path.join(scriptsDir, 'stop-console-check.js'), JSON.stringify({ hook_event_name: 'Stop' }), {}, path.join(testDir, 'sub'));
+    assert.strictEqual(result.code, 0);
+    const ctx = JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
+    assert.ok(ctx.includes('tracked.js') && ctx.includes('new.js'), `Should report both files, got: ${ctx}`);
+    cleanupTestDir(testDir);
+  })) passed++; else failed++;
+
   // hooks.json validation
   console.log('\nhooks.json Validation:');
 

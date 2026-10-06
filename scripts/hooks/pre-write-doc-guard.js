@@ -4,11 +4,11 @@
  *
  * Cross-platform (Windows, macOS, Linux)
  *
- * Warns when Claude creates a stray .md/.txt file instead of consolidating
+ * Warns when Claude creates a stray Markdown file instead of consolidating
  * documentation in README.md or docs/. Standard files (README, CLAUDE,
  * AGENTS, CONTRIBUTING, CHANGELOG, LICENSE, SECURITY, CODE_OF_CONDUCT,
  * SKILL.md) and files under docs/, skills/, agents/, commands/, rules/,
- * contexts/, .claude/ or .github/ are allowed.
+ * contexts/, templates/, test directories, .claude/ or .github/ are allowed.
  *
  * Non-blocking: emits a `systemMessage` only.
  */
@@ -16,10 +16,11 @@
 const path = require('path');
 const { readStdinJson, output } = require('../lib/utils');
 
-const DOC_FILE = /\.(md|txt)$/i;
+const DOC_FILE = /\.md$/i;
 const ALLOWED_BASENAMES =
-  /^(README|CLAUDE|AGENTS|CONTRIBUTING|CHANGELOG|LICENSE|SECURITY|CODE_OF_CONDUCT|SKILL)(\.[A-Za-z0-9_-]+)?\.(md|txt)$/i;
-const ALLOWED_DIRS = /(^|[\\/])(docs|skills|agents|commands|rules|contexts|\.claude|\.github)([\\/]|$)/;
+  /^(README|CLAUDE|AGENTS|CONTRIBUTING|CHANGELOG|LICENSE|SECURITY|CODE_OF_CONDUCT|SKILL)(\.[A-Za-z0-9_-]+)?\.md$/i;
+const ALLOWED_DIRS =
+  /(^|[\\/])(docs?|skills|agents|commands|rules|contexts|templates|tests?|__tests__|fixtures|\.claude|\.github)([\\/]|$)/i;
 
 function isStrayDocFile(filePath) {
   if (!filePath || !DOC_FILE.test(filePath)) return false;

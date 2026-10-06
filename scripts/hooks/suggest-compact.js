@@ -63,8 +63,6 @@ async function main() {
   if (message) {
     output({ systemMessage: message });
   }
-
-  process.exit(0);
 }
 
 main().catch(err => {

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   Installe (ou met à jour) le plugin everything-claude-code au scope utilisateur.
@@ -6,6 +6,9 @@
 .DESCRIPTION
   Une installation au scope utilisateur vaut pour tous les projets de la machine
   et pour tous les comptes Claude utilisés dessus.
+
+  Lancement recommandé (la stratégie d'exécution par défaut bloque les scripts) :
+    powershell -ExecutionPolicy Bypass -File .\install.ps1
 
   Variables d'environnement :
     CLAUDE_CONFIG_DIR  répertoire de configuration Claude Code (défaut : ~\.claude)
@@ -18,8 +21,8 @@
   Ne copie pas rules\ dans ~\.claude\rules\.
 
 .EXAMPLE
-  .\install.ps1
-  .\install.ps1 -Update
+  powershell -ExecutionPolicy Bypass -File .\install.ps1
+  powershell -ExecutionPolicy Bypass -File .\install.ps1 -Update
 #>
 param(
   [switch]$Update,
@@ -27,6 +30,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Le script Node lu sur stdin et les messages doivent transiter en UTF-8.
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
 $Repo = if ($env:ECC_REPO) { $env:ECC_REPO } else { 'Nexus-Conseil/everything-claude-code' }
 $Marketplace = 'everything-claude-code'
@@ -56,13 +61,8 @@ if ($Update) {
   Write-Host "[ECC] Mise à jour du plugin $Plugin..."
   Invoke-Claude @('plugin', 'update', $Plugin)
 } else {
-  $list = (& claude plugin marketplace list 2>$null) -join "`n"
-  if ($list -match "(?m)^\s*>\s*$([regex]::Escape($Marketplace))\s*$") {
-    Write-Host "[ECC] Marketplace $Marketplace déjà enregistrée."
-  } else {
-    Write-Host "[ECC] Enregistrement de la marketplace $Repo (scope utilisateur)..."
-    Invoke-Claude @('plugin', 'marketplace', 'add', $Repo, '--scope', 'user')
-  }
+  Write-Host "[ECC] Enregistrement de la marketplace $Repo (scope utilisateur, sans effet si déjà présente)..."
+  Invoke-Claude @('plugin', 'marketplace', 'add', $Repo, '--scope', 'user')
   Write-Host "[ECC] Installation du plugin $Plugin (scope utilisateur)..."
   Invoke-Claude @('plugin', 'install', $Plugin, '--scope', 'user')
 }
@@ -79,22 +79,25 @@ if (fs.existsSync(file)) {
   try {
     settings = JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (err) {
-    console.error(`[ECC] ${file} n'est pas un JSON valide, autoUpdate non modifié : ${err.message}`);
+    console.error(`[ECC] ${file} is not valid JSON, autoUpdate left unchanged: ${err.message}`);
     process.exit(0);
   }
 }
 if (Array.isArray(settings.extraKnownMarketplaces)) {
-  console.error('[ECC] extraKnownMarketplaces est un tableau dans ce fichier : autoUpdate non modifié.');
+  console.error('[ECC] extraKnownMarketplaces is an array in this file: autoUpdate left unchanged.');
   process.exit(0);
 }
 settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
-const entry = settings.extraKnownMarketplaces[marketplace] || { source: { source: 'github', repo } };
+let entry = settings.extraKnownMarketplaces[marketplace];
+if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+  entry = { source: { source: 'github', repo } };
+}
 if (entry.autoUpdate !== true) {
   entry.autoUpdate = true;
   settings.extraKnownMarketplaces[marketplace] = entry;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(settings, null, 2) + '\n');
-  console.log(`[ECC] Mise à jour automatique activée pour la marketplace ${marketplace} (${file}).`);
+  console.log(`[ECC] autoUpdate enabled for marketplace ${marketplace} (${file}).`);
 }
 '@
 $autoUpdateScript | & node - $settingsFile $Marketplace $Repo
@@ -102,11 +105,16 @@ $autoUpdateScript | & node - $settingsFile $Marketplace $Repo
 # Règles : un plugin Claude Code ne peut pas distribuer de règles, on les copie
 # au niveau utilisateur (chargées dans tous les projets de la machine).
 if (-not $NoRules) {
-  $src = Join-Path $ScriptDir 'rules'
-  if (-not (Test-Path $src)) {
-    $src = Join-Path $ClaudeDir "plugins\marketplaces\$Marketplace\rules"
+  $marketRules = Join-Path (Join-Path (Join-Path (Join-Path $ClaudeDir 'plugins') 'marketplaces') $Marketplace) 'rules'
+  $localRules = Join-Path $ScriptDir 'rules'
+  if ($Update -and (Test-Path $marketRules)) {
+    $src = $marketRules
+  } elseif (Test-Path $localRules) {
+    $src = $localRules
+  } else {
+    $src = $marketRules
   }
-  $dest = Join-Path $ClaudeDir 'rules\everything-claude-code'
+  $dest = Join-Path (Join-Path $ClaudeDir 'rules') 'everything-claude-code'
   if (Test-Path $src) {
     if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
     New-Item -ItemType Directory -Path $dest | Out-Null

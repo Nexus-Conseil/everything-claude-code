@@ -55,7 +55,6 @@ async function main() {
   }
 
   output(lines.join('\n'));
-  process.exit(0);
 }
 
 main().catch(err => {

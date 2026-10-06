@@ -21,8 +21,8 @@ Ce fork s'installe comme **plugin Claude Code au scope utilisateur** : une seule
 ```bash
 git clone https://github.com/Nexus-Conseil/everything-claude-code.git
 cd everything-claude-code
-./install.sh          # macOS, Linux, Git Bash
-.\install.ps1         # Windows PowerShell
+./install.sh                                            # macOS, Linux, Git Bash
+powershell -ExecutionPolicy Bypass -File .\install.ps1   # Windows PowerShell
 ```
 
 Le script est idempotent et :
@@ -48,7 +48,7 @@ Une session cloud démarre dans une machine virtuelle neuve : les plugins instal
 ```bash
 claude plugin marketplace add Nexus-Conseil/everything-claude-code --scope user
 claude plugin install everything-claude-code@everything-claude-code --scope user
-mkdir -p ~/.claude/rules && cp -r ~/.claude/plugins/marketplaces/everything-claude-code/rules ~/.claude/rules/everything-claude-code
+mkdir -p ~/.claude/rules/everything-claude-code && cp ~/.claude/plugins/marketplaces/everything-claude-code/rules/*.md ~/.claude/rules/everything-claude-code/
 ```
 
 Le résultat est mis en cache par l'environnement (environ sept jours), puis le script est rejoué automatiquement. Chaque compte Claude a ses propres environnements : l'opération se fait une fois par environnement.
@@ -255,7 +255,7 @@ The easiest way to use this repo - install as a Claude Code plugin (user scope: 
 /plugin install everything-claude-code@everything-claude-code
 ```
 
-Or run `./install.sh` (`.\install.ps1` on Windows) from a clone: same commands, plus auto-update and the `rules/` copy.
+Or run `./install.sh` (`powershell -ExecutionPolicy Bypass -File .\install.ps1` on Windows) from a clone: same commands, plus auto-update and the `rules/` copy.
 
 Or add directly to your `~/.claude/settings.json`:
 

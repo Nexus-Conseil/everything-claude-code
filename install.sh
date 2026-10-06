@@ -19,7 +19,7 @@ REPO="${ECC_REPO:-Nexus-Conseil/everything-claude-code}"
 MARKETPLACE="everything-claude-code"
 PLUGIN="everything-claude-code@everything-claude-code"
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 UPDATE=0
 RULES=1
 
@@ -45,12 +45,8 @@ if [ "$UPDATE" = 1 ]; then
   echo "[ECC] Mise à jour du plugin $PLUGIN..."
   claude plugin update "$PLUGIN"
 else
-  if claude plugin marketplace list 2>/dev/null | grep -q "^  > ${MARKETPLACE}\$"; then
-    echo "[ECC] Marketplace $MARKETPLACE déjà enregistrée."
-  else
-    echo "[ECC] Enregistrement de la marketplace $REPO (scope utilisateur)..."
-    claude plugin marketplace add "$REPO" --scope user
-  fi
+  echo "[ECC] Enregistrement de la marketplace $REPO (scope utilisateur, sans effet si déjà présente)..."
+  claude plugin marketplace add "$REPO" --scope user
   echo "[ECC] Installation du plugin $PLUGIN (scope utilisateur)..."
   claude plugin install "$PLUGIN" --scope user
 fi
@@ -75,7 +71,10 @@ if (Array.isArray(settings.extraKnownMarketplaces)) {
   process.exit(0);
 }
 settings.extraKnownMarketplaces = settings.extraKnownMarketplaces || {};
-const entry = settings.extraKnownMarketplaces[marketplace] || { source: { source: 'github', repo } };
+let entry = settings.extraKnownMarketplaces[marketplace];
+if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+  entry = { source: { source: 'github', repo } };
+}
 if (entry.autoUpdate !== true) {
   entry.autoUpdate = true;
   settings.extraKnownMarketplaces[marketplace] = entry;
@@ -88,10 +87,14 @@ NODE
 # Règles : un plugin Claude Code ne peut pas distribuer de règles, on les copie
 # au niveau utilisateur (chargées dans tous les projets de la machine).
 if [ "$RULES" = 1 ]; then
-  if [ -d "$SCRIPT_DIR/rules" ]; then
+  MARKET_RULES="$CLAUDE_DIR/plugins/marketplaces/$MARKETPLACE/rules"
+  # En mode --update, la copie de la marketplace vient d'être rafraîchie : on la préfère au clone local.
+  if [ "$UPDATE" = 1 ] && [ -d "$MARKET_RULES" ]; then
+    SRC="$MARKET_RULES"
+  elif [ -d "$SCRIPT_DIR/rules" ]; then
     SRC="$SCRIPT_DIR/rules"
   else
-    SRC="$CLAUDE_DIR/plugins/marketplaces/$MARKETPLACE/rules"
+    SRC="$MARKET_RULES"
   fi
   DEST="$CLAUDE_DIR/rules/everything-claude-code"
   if [ -d "$SRC" ]; then

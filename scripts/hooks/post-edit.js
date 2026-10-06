@@ -5,64 +5,87 @@
  * Cross-platform (Windows, macOS, Linux)
  *
  * For .js/.jsx/.ts/.tsx files:
- *   1. format with Prettier when it is installed in the project (best effort)
- *   2. type-check .ts/.tsx files with the nearest tsconfig.json (errors for
- *      the edited file only, 10 lines max)
+ *   1. format with the project's own Prettier (node_modules/prettier found
+ *      by walking up from the file; a global Prettier is never used)
+ *   2. type-check .ts/.tsx files with the project's own TypeScript and the
+ *      nearest tsconfig.json (errors for the edited file only, 10 lines max)
  *   3. flag console.log statements
  *
- * Findings are returned as `additionalContext` so Claude can act on them.
+ * Tools are executed with execFileSync (no shell), so the file path is
+ * never interpreted by a shell. Findings are returned as `additionalContext`
+ * so Claude can act on them.
  * Set ECC_SKIP_PRETTIER=1 or ECC_SKIP_TSC=1 to disable a step.
  */
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { readStdinJson, output, grepFile } = require('../lib/utils');
 
 const SOURCE_FILE = /\.(ts|tsx|js|jsx)$/i;
 const TS_FILE = /\.(ts|tsx)$/i;
 
-function findTsconfigDir(startDir) {
+/**
+ * Walk up from startDir looking for relativePath. Returns { dir, file } or null.
+ */
+function findUp(startDir, relativePath) {
   let dir = startDir;
   for (;;) {
-    if (fs.existsSync(path.join(dir, 'tsconfig.json'))) return dir;
+    const candidate = path.join(dir, relativePath);
+    if (fs.existsSync(candidate)) return { dir, file: candidate };
     const parent = path.dirname(dir);
     if (parent === dir) return null;
     dir = parent;
   }
 }
 
+/**
+ * Resolve a project-local package binary (node_modules/<pkg>/<bin>), never a global one.
+ */
+function resolveLocalBin(startDir, pkg, binCandidates) {
+  for (const bin of binCandidates) {
+    const found = findUp(startDir, path.join('node_modules', pkg, bin));
+    if (found) return found.file;
+  }
+  return null;
+}
+
+function runNode(script, args, options = {}) {
+  return execFileSync(process.execPath, [script, ...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    ...options
+  });
+}
+
 function runPrettier(filePath) {
+  const bin = resolveLocalBin(path.dirname(filePath), 'prettier', ['bin/prettier.cjs', 'bin-prettier.js']);
+  if (!bin) return; // Prettier is not a dependency of this project
   try {
-    execSync(`npx --no-install prettier --write "${filePath}"`, {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 30000
-    });
+    runNode(bin, ['--write', filePath], { timeout: 30000 });
   } catch {
-    // Prettier not installed or failed: nothing to do
+    // Formatting failure is not a reason to disturb the session
   }
 }
 
 function typeCheck(filePath) {
-  const dir = findTsconfigDir(path.dirname(filePath));
-  if (!dir) return [];
+  const tsconfig = findUp(path.dirname(filePath), 'tsconfig.json');
+  if (!tsconfig) return [];
+  const tsc = resolveLocalBin(tsconfig.dir, 'typescript', ['bin/tsc']);
+  if (!tsc) return [];
 
   let out = '';
   try {
-    out = execSync('npx --no-install tsc --noEmit --pretty false', {
-      cwd: dir,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 45000
-    });
+    out = runNode(tsc, ['--noEmit', '--pretty', 'false'], { cwd: tsconfig.dir, timeout: 45000 });
   } catch (err) {
     out = `${err.stdout || ''}\n${err.stderr || ''}`;
   }
 
-  const relative = path.relative(dir, filePath).split(path.sep).join('/');
+  // tsc prints "<path relative to cwd>(<line>,<col>): error TS..."
+  const relative = path.relative(tsconfig.dir, filePath).split(path.sep).join('/');
   return out
     .split('\n')
-    .filter(line => line.includes(relative) || line.includes(filePath))
+    .filter(line => line.includes(`${relative}(`) || line.includes(`${filePath}(`))
     .slice(0, 10);
 }
 
@@ -117,4 +140,4 @@ if (require.main === module) {
   main().catch(() => process.exit(0));
 }
 
-module.exports = { findTsconfigDir, consoleLogLines, SOURCE_FILE };
+module.exports = { findUp, resolveLocalBin, consoleLogLines, SOURCE_FILE };
